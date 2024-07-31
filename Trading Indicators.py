@@ -1,6 +1,6 @@
+# this file is for testing indicators on specific stocks
+
 import yfinance as yf
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 
 # select stock
@@ -27,15 +27,15 @@ def bollinger_bands(df):
 bollinger_bands(history)
 
 # find the signals
-def calculate_signals(df):
+def calculate_bollinger_signals(df):
     # create the signal column
-    df['Signal'] = 0
+    df['Bollinger Signal'] = 0
 
     # set signals
-    df.loc[df['Close'] < df['Lower Band'], 'Signal'] = 1
-    df.loc[df['Close'] > df['Upper Band'], 'Signal'] = -1
+    df.loc[df['Close'] < df['Lower Band'], 'Bollinger Signal'] = 1
+    df.loc[df['Close'] > df['Upper Band'], 'Bollinger Signal'] = -1
 
-calculate_signals(history)
+calculate_bollinger_signals(history)
 
 # relative strength index
 def rsi(df):
@@ -92,66 +92,136 @@ def MACD(df):
 
 MACD(history)
 
+def find_trends(df):
+    # find 5d trend
+    rolling_gain = df['Gain'].rolling(window=5).sum()
+    rolling_loss = df['Loss'].rolling(window=5).sum()
+    df['5d Trend'] = rolling_gain - rolling_loss
+    # df['5d Trend'] = (rolling_gain - rolling_loss).apply(lambda x: 1 if x > 0 else -1)
+
+    # find 20d trend
+    rolling_gain = df['Gain'].rolling(window=20).sum()
+    rolling_loss = df['Loss'].rolling(window=20).sum()
+    df['20d Trend'] = rolling_gain - rolling_loss
+    # df['20d Trend'] = (rolling_gain - rolling_loss).apply(lambda x: 1 if x > 0 else -1)
+
+    # find 200d trend
+    rolling_gain = df['Gain'].rolling(window=200).sum()
+    rolling_loss = df['Loss'].rolling(window=200).sum()
+    df['200d Trend'] = rolling_gain - rolling_loss
+    # df['200d Trend'] = (rolling_gain - rolling_loss).apply(lambda x: 1 if x > 0 else -1)
+    
+find_trends(history)
+
+# def rsi_and_macd_signals(df):
+
 history = history.tail(50)
 history.to_csv("{} CSV File".format(ticker), index=False, sep='\t')
+history.to_markdown("{} Table File".format(ticker), index=False)
 
-# plot the closing prices
-plt.figure(figsize=(12,7))
-plt.plot(history['Close'], label = "Closing Price", color = 'b')
+def plot_bands(df):
+    plt.figure(figsize=(12,7))
 
-# plot the moving averages
-plt.plot(history['20d Moving Average'], label = "20d Moving Average", color = 'g', linestyle='-')
-plt.plot(history['12d EMA'], label = "12d Exponential Moving Average", color = 'g', linestyle='--')
-plt.plot(history['26d EMA'], label = "26d Exponential Moving Average", color = 'g', linestyle=':')
+    # plot the closing prices
+    plt.plot(df['Close'], label = "Closing Price", color = 'b')
 
-# plot the bollinger bands
-plt.plot(history['Upper Band'], label = "Upper Bollinger Band", color='r')
-plt.plot(history['Lower Band'], label = "Lower Bollinger Band", color='r')
+    # plot the bollinger bands
+    plt.plot(df['Upper Band'], label = "Upper Bollinger Band", color='r')
+    plt.plot(df['Lower Band'], label = "Lower Bollinger Band", color='r')
 
-# plot the signals
-plt.plot(history[history['Signal'] == 1].index, history['Close'][history['Signal'] == 1], '^', markersize=10, color='g', lw=0, label='Buy Signal')
-plt.plot(history[history['Signal'] == -1].index, history['Close'][history['Signal'] == -1], 'v', markersize=10, color='r', lw=0, label='Sell Signal')
+    # plot the signals
+    plt.plot(df[df['Bollinger Signal'] == 1].index, df['Lower Band'][df['Bollinger Signal'] == 1], '^', markersize=10, color='g', lw=0, label='Buy Signal')
+    plt.plot(df[df['Bollinger Signal'] == -1].index, df['Upper Band'][df['Bollinger Signal'] == -1], 'v', markersize=10, color='r', lw=0, label='Sell Signal')
 
-plt.title("{} Mean Reversion Strategy".format(ticker))
-plt.xlabel("Date")
-plt.ylabel("Price")
-plt.legend(loc="best")
+    plt.title("{} Bollinger Bonds".format(ticker))
+    plt.xlabel("Date")
+    plt.ylabel("Price")
+    plt.legend(loc="best")
 
-# plot the rsi
-plt.figure(figsize=(12,7))
-plt.plot(history['RSI'], label="Relative Strength Index")
-plt.axhline(y = 70, color = 'r', linestyle=':', label="Normal Overbought Indicator")
-plt.axhline(y = 30, color = 'r', linestyle='--', label="Normal Oversold Indicator")
+def plot_smas(df):
+    plt.figure(figsize=(12,7))
 
-plt.title("{} Relative Strength Index".format(ticker))
-plt.xlabel("Date")
-plt.ylabel("RSI")
-plt.legend(loc="best")
+    # plot the moving averages
+    plt.plot(df['20d Moving Average'], label = "20d Moving Average", color = 'g', linestyle='-')
+    plt.plot(df['12d EMA'], label = "12d Exponential Moving Average", color = 'g', linestyle='--')
+    plt.plot(df['26d EMA'], label = "26d Exponential Moving Average", color = 'g', linestyle=':')
 
-# plot the stochastic oscillator
-plt.figure(figsize=(12,7))
-plt.plot(history['%K'], label="%K")
-plt.plot(history['%D'], label="%D")
-plt.axhline(y = 80, color = 'r', linestyle=':', label="Overbought Indicator")
-plt.axhline(y = 20, color = 'r', linestyle='--', label="Oversold Indicator")
+    plt.title("{} SMAs".format(ticker))
+    plt.xlabel("Date")
+    plt.ylabel("Price")
+    plt.legend(loc="best")
 
-plt.legend(loc="best")
-plt.title("{} Stochastic Oscillator".format(ticker))
-plt.xlabel("Date")
-plt.ylabel("Stochastic Oscillator Value")
+def plot_rsi(df):
+    plt.figure(figsize=(12,7))
 
-# plot the MACD
-plt.figure(figsize=(12,7))
-plt.plot(history['MACD'], label="MACD")
-plt.plot(history['Signal Line'], label="Signal Line")
-# plt.hist(history['MACD and Signal Line Difference'])
-plt.axhline(y = 0, color='k')
+    # plot the rsi
+    plt.plot(df['RSI'], label="Relative Strength Index")
+    plt.axhline(y = 70, color = 'r', linestyle=':', label="Normal Overbought Indicator")
+    plt.axhline(y = 30, color = 'r', linestyle='--', label="Normal Oversold Indicator")
 
-plt.legend(loc="best")
-plt.title("{} MACD".format(ticker))
-plt.xlabel("Date")
-plt.ylabel("Value")
+    plt.title("{} Relative Strength Index".format(ticker))
+    plt.xlabel("Date")
+    plt.ylabel("RSI")
+    plt.legend(loc="best")
 
-# display the plot
+def plot_stochastic_oscillator(df):
+    plt.figure(figsize=(12,7))
+
+    # plot the stochastic oscillator
+    plt.plot(df['%K'], label="%K")
+    plt.plot(df['%D'], label="%D")
+    plt.axhline(y = 80, color = 'r', linestyle=':', label="Overbought Indicator")
+    plt.axhline(y = 20, color = 'r', linestyle='--', label="Oversold Indicator")
+
+    plt.legend(loc="best")
+    plt.title("{} Stochastic Oscillator".format(ticker))
+    plt.xlabel("Date")
+    plt.ylabel("Stochastic Oscillator Value")
+
+def plot_macd(df):
+    plt.figure(figsize=(12,7))
+
+    # plot the MACD
+    plt.plot(df['MACD'], label="MACD")
+    plt.plot(df['Signal Line'], label="Signal Line")
+    # plt.hist(history['MACD and Signal Line Difference'])
+    plt.axhline(y = 0, color='k')
+
+    plt.legend(loc="best")
+    plt.title("{} MACD".format(ticker))
+    plt.xlabel("Date")
+    plt.ylabel("Value")
+
+    plt.figure(figsize=(12,7))
+
+    # plot the difference between MACD and signal line
+    plt.bar(df.index, df['MACD and Signal Line Difference'], label='MACD and Signal Line Difference')
+    plt.axhline(y = 0, color='k')
+
+    plt.legend(loc="best")
+    plt.title("{} MACD".format(ticker))
+    plt.xlabel("Date")
+    plt.ylabel("Value")
+
+def plot_trends(df):
+    plt.figure(figsize=(15,7))
+
+    # plot the trends
+    temp = df[df['5d Trend'] != 0]
+    plt.bar(df.index, df['5d Trend'], color='blue', alpha=0.5, label='5d Trend')
+    plt.bar(df.index, df['20d Trend'], color='green', alpha=0.5, label='20d Trend')
+    plt.bar(df.index, df['200d Trend'], color='red', alpha=0.5, label='200d Trend')
+    plt.axhline(y = 0, color='k')
+    # plt.ylim(-3, 3)
+
+    plt.legend(loc="best")
+    plt.title("{} Overall Trends".format(ticker))
+    plt.xlabel("Date")
+
+# plot_bands(history)
+# plot_trends(history)
+plot_macd(history)
+
+# display the plots
 plt.show()
 
