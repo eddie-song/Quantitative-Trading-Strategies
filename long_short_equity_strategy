@@ -1,0 +1,83 @@
+import yfinance as yf
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+
+# Define the tickers from your portfolio
+portfolio = ['COIN', 'GRAB', 'INTC', 'MSFT', 'NVDA', 'SEAT', 'VTLE', 'GOOGL', 'IBM', 'NFLX', 'AMZN',
+           'AMD', 'QQQ', 'QQQM', 'NEE', 'V', 'C', 'SQ', 'PHYS', 'SCHD', 'VOO', 'UNH', 'ABBV', 'HCA',
+           'CI', 'LLY', 'ACIC', 'SBLK', 'SB', 'BP', 'VTLE', 'FSLR', 'CMG', 'SBUX', 'JD', 'REAL', 'BABA', 'AAP']
+
+# Fetch historical data for these stocks
+data = yf.download(portfolio, start="2020-01-01", end="2023-01-01")['Adj Close']
+
+# Generate dummy P/E and ROE data for simplicity (replace with actual data in practice)
+pe_ratio = np.random.uniform(10, 30, size=(len(data), len(portfolio)))  # Simulated P/E ratio
+roe = np.random.uniform(10, 20, size=(len(data), len(portfolio)))  # Simulated ROE
+
+# Calculate 12-month momentum
+momentum = data.pct_change(252).iloc[-1, :]
+
+# Combine into a DataFrame
+factor_data = pd.DataFrame({
+    'P/E': pe_ratio[-1, :],
+    'ROE': roe[-1, :],
+    'Momentum': momentum
+}, index=portfolio)
+
+# Standardize factors (z-scores)
+scaler = StandardScaler()
+factor_data[['P/E', 'ROE', 'Momentum']] = scaler.fit_transform(factor_data[['P/E', 'ROE', 'Momentum']])
+
+# Rank stocks based on each factor (lower P/E is better, higher ROE and Momentum are better)
+factor_data['Value Rank'] = factor_data['P/E'].rank(ascending=True)
+factor_data['Quality Rank'] = factor_data['ROE'].rank(ascending=False)
+factor_data['Momentum Rank'] = factor_data['Momentum'].rank(ascending=False)
+
+# Create a combined score by averaging the ranks
+factor_data['Combined Rank'] = factor_data[['Value Rank', 'Quality Rank', 'Momentum Rank']].mean(axis=1)
+
+# Select the top 20% for long and bottom 20% for short
+n_stocks = len(portfolio)
+long_stocks = factor_data.nsmallest(int(n_stocks * 0.2), 'Combined Rank').index
+short_stocks = factor_data.nlargest(int(n_stocks * 0.2), 'Combined Rank').index
+
+print("Long Stocks:", long_stocks)
+print("Short Stocks:", short_stocks)
+
+# Calculate returns for the long and short portfolios
+long_returns = data[long_stocks].pct_change().mean(axis=1)
+short_returns = data[short_stocks].pct_change().mean(axis=1)
+
+# Long/Short Portfolio Return
+portfolio_returns = long_returns - short_returns
+
+# Cumulative returns
+cumulative_returns = (1 + portfolio_returns).cumprod()
+
+# Plot the cumulative returns
+plt.figure(figsize=(12, 7))
+plt.plot(cumulative_returns, label='Factor-Based Long/Short Portfolio')
+plt.title('Factor-Based Long/Short Equity Strategy')
+plt.xlabel('Date')
+plt.ylabel('Cumulative Returns')
+plt.legend(loc='best')
+plt.show()
+
+# Sharpe Ratio
+sharpe_ratio = portfolio_returns.mean() / portfolio_returns.std() * np.sqrt(252)
+print(f'Sharpe Ratio: {sharpe_ratio:.2f}')
+
+# Maximum Drawdown
+rolling_max = cumulative_returns.cummax()
+drawdown = (cumulative_returns - rolling_max) / rolling_max
+max_drawdown = drawdown.min()
+print(f'Maximum Drawdown: {max_drawdown:.2%}')
+
+# Alpha/Beta (relative to the S&P 500 as a benchmark)
+benchmark = yf.download('^GSPC', start="2020-01-01", end="2023-01-01")['Adj Close'].pct_change()
+excess_returns = portfolio_returns - benchmark.mean()
+alpha = excess_returns.mean() * 252
+beta = excess_returns.cov(benchmark) / benchmark.var()
+print(f'Alpha: {alpha:.2%}, Beta: {beta:.2f}')
