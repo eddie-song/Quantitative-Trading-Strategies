@@ -3,8 +3,12 @@
 import yfinance as yf
 import matplotlib.pyplot as plt
 
+# ignore warnings
+import warnings
+warnings.filterwarnings("ignore")
+
 # select stock
-ticker="GOOGL"
+ticker="DIS"
 stock = yf.Ticker(ticker)
 history = stock.history(period="2y") # historical prices of stock
 n = 20 # number of days in smoothing period
@@ -37,8 +41,8 @@ def calculate_bollinger_signals(df):
 
 calculate_bollinger_signals(history)
 
-# relative strength index
-def rsi(df):
+# find gain/loss and average gain/loss
+def find_gains_and_losses(df):
     # create gain and loss columns
     df['Gain'] = 0
     df['Loss'] = 0
@@ -57,6 +61,9 @@ def rsi(df):
     df['Avg. Gains'] = df['Gain'].rolling(window=14).mean()
     df['Avg. Loss'] = df['Loss'].rolling(window=14).mean()
 
+# relative strength index
+def rsi(df):
+    find_gains_and_losses(df)
     # calculate the RS and RSI
     df['RS'] = df['Avg. Gains'] / df['Avg. Loss']
     df['RSI'] = 100 - (100 / (1 + df['RS']))
@@ -93,6 +100,7 @@ def MACD(df):
 MACD(history)
 
 def find_trends(df):
+    find_gains_and_losses(df)
     # find 5d trend
     rolling_gain = df['Gain'].rolling(window=5).sum()
     rolling_loss = df['Loss'].rolling(window=5).sum()
@@ -113,11 +121,18 @@ def find_trends(df):
     
 find_trends(history)
 
-# def rsi_and_macd_signals(df):
+def find_moving_averages(df):
+    # calculate the 50 day moving average
+    df['50d Moving Average'] = df['Close'].rolling(window=50).mean()
+
+    # calculate the 200 day moving average
+    df['200d Moving Average'] = df['Close'].rolling(window=200).mean()
+
+find_moving_averages(history)
 
 history = history.tail(50)
-history.to_csv("{} CSV File".format(ticker), index=False, sep='\t')
-history.to_markdown("{} Table File".format(ticker), index=False)
+history.to_csv("./CSV Files/{} CSV File".format(ticker), index=False, sep='\t')
+history.to_markdown("./Table Files/{} Table File".format(ticker), index=False)
 
 def plot_bands(df):
     plt.figure(figsize=(12,7))
@@ -138,15 +153,17 @@ def plot_bands(df):
     plt.ylabel("Price")
     plt.legend(loc="best")
 
-def plot_smas(df):
+def plot_emas(df):
     plt.figure(figsize=(12,7))
 
+    # plot the closing price
+    plt.plot(df['Close'], label = "Closing Price", color = 'b')
+
     # plot the moving averages
-    plt.plot(df['20d Moving Average'], label = "20d Moving Average", color = 'g', linestyle='-')
     plt.plot(df['12d EMA'], label = "12d Exponential Moving Average", color = 'g', linestyle='--')
     plt.plot(df['26d EMA'], label = "26d Exponential Moving Average", color = 'g', linestyle=':')
 
-    plt.title("{} SMAs".format(ticker))
+    plt.title("{} EMAs".format(ticker))
     plt.xlabel("Date")
     plt.ylabel("Price")
     plt.legend(loc="best")
@@ -218,10 +235,30 @@ def plot_trends(df):
     plt.title("{} Overall Trends".format(ticker))
     plt.xlabel("Date")
 
+def plot_moving_averages(df):
+    plt.figure(figsize=(12,7))
+
+    # plot the closing prices
+    plt.plot(df['Close'], label = "Closing Price", color = 'b')
+
+    # plot the moving averages
+    plt.plot(df['20d Moving Average'], label = "20d Moving Average", color = 'k')
+    plt.plot(df['50d Moving Average'], label = "50d Moving Average", color = 'g')
+    plt.plot(df['200d Moving Average'], label = "200d Moving Average", color = 'r')
+
+    plt.title("{} Moving Averages".format(ticker))
+    plt.xlabel("Date")
+    plt.ylabel("Price")
+    plt.legend(loc="best")
+
 # plot_bands(history)
+# plot_stochastic_oscillator(history)
+# plot_moving_averages(history)
+# plot_emas(history)
+# plot_rsi(history)
 # plot_trends(history)
-plot_macd(history)
+# plot_macd(history)
 
 # display the plots
-plt.show()
+# plt.show()
 
