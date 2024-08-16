@@ -15,6 +15,29 @@ n = 20 # number of days in smoothing period
 m = 2 # number of standard deviations
 history = history.drop(columns = ['Volume', 'Dividends', 'Stock Splits']) # drop unecessary columns
 
+# universal methods
+# find gain/loss and average gain/loss
+def find_gains_and_losses(df):
+    # create gain and loss columns
+    df['Gain'] = 0
+    df['Loss'] = 0
+
+    for i in range(1, len(df)):
+        # calculate the change in price
+        change = df['Close'].iloc[i] - df['Close'].iloc[i-1]
+
+        # add to respective column
+        if change > 0:
+            df['Gain'].iloc[i] = change
+        else:
+            df['Loss'].iloc[i] = abs(change)
+    
+    # calculate the average gains and losses
+    df['Avg. Gains'] = df['Gain'].rolling(window=14).mean()
+    df['Avg. Loss'] = df['Loss'].rolling(window=14).mean()
+
+# indicators
+
 # bollinger bands
 def bollinger_bands(df):
     # calculate the typical price
@@ -39,27 +62,6 @@ def calculate_bollinger_signals(df):
     df.loc[df['Close'] < df['Lower Band'], 'Bollinger Signal'] = 1
     df.loc[df['Close'] > df['Upper Band'], 'Bollinger Signal'] = -1
 
-calculate_bollinger_signals(history)
-
-# find gain/loss and average gain/loss
-def find_gains_and_losses(df):
-    # create gain and loss columns
-    df['Gain'] = 0
-    df['Loss'] = 0
-
-    for i in range(1, len(df)):
-        # calculate the change in price
-        change = df['Close'].iloc[i] - df['Close'].iloc[i-1]
-
-        # add to respective column
-        if change > 0:
-            df['Gain'].iloc[i] = change
-        else:
-            df['Loss'].iloc[i] = abs(change)
-    
-    # calculate the average gains and losses
-    df['Avg. Gains'] = df['Gain'].rolling(window=14).mean()
-    df['Avg. Loss'] = df['Loss'].rolling(window=14).mean()
 
 # relative strength index
 def rsi(df):
@@ -68,7 +70,6 @@ def rsi(df):
     df['RS'] = df['Avg. Gains'] / df['Avg. Loss']
     df['RSI'] = 100 - (100 / (1 + df['RS']))
 
-rsi(history)
 
 # stochastic oscillator
 def stochastic_oscillator(df):
@@ -80,7 +81,6 @@ def stochastic_oscillator(df):
     df['%K'] = ((df['Close'] - df['14d Low']) / (df['14d High'] - df['14d Low'])) * 100
     df['%D'] = df['%K'].rolling(window=3).mean()
 
-stochastic_oscillator(history)
 
 # moving average convergence divergence
 def MACD(df):
@@ -97,8 +97,8 @@ def MACD(df):
     # calculate the difference between the MACD and signal line
     df['MACD and Signal Line Difference'] = df['MACD'] - df['Signal Line']
 
-MACD(history)
 
+# trends
 def find_trends(df):
     find_gains_and_losses(df)
     # find 5d trend
@@ -118,9 +118,9 @@ def find_trends(df):
     rolling_loss = df['Loss'].rolling(window=200).sum()
     df['200d Trend'] = rolling_gain - rolling_loss
     # df['200d Trend'] = (rolling_gain - rolling_loss).apply(lambda x: 1 if x > 0 else -1)
-    
-find_trends(history)
 
+
+# moving averages
 def find_moving_averages(df):
     # calculate the 50 day moving average
     df['50d Moving Average'] = df['Close'].rolling(window=50).mean()
@@ -130,11 +130,15 @@ def find_moving_averages(df):
 
 find_moving_averages(history)
 
+# convert to csv and markdown
 history = history.tail(50)
 history.to_csv("./CSV Files/{} CSV File".format(ticker), index=False, sep='\t')
 history.to_markdown("./Table Files/{} Table File".format(ticker), index=False)
 
+
+# plot indicators
 def plot_bands(df):
+    bollinger_bands(df)
     plt.figure(figsize=(12,7))
 
     # plot the closing prices
@@ -154,6 +158,7 @@ def plot_bands(df):
     plt.legend(loc="best")
 
 def plot_emas(df):
+    MACD(df)
     plt.figure(figsize=(12,7))
 
     # plot the closing price
@@ -169,6 +174,7 @@ def plot_emas(df):
     plt.legend(loc="best")
 
 def plot_rsi(df):
+    rsi(df)
     plt.figure(figsize=(12,7))
 
     # plot the rsi
@@ -182,6 +188,7 @@ def plot_rsi(df):
     plt.legend(loc="best")
 
 def plot_stochastic_oscillator(df):
+    stochastic_oscillator(df)
     plt.figure(figsize=(12,7))
 
     # plot the stochastic oscillator
@@ -196,6 +203,7 @@ def plot_stochastic_oscillator(df):
     plt.ylabel("Stochastic Oscillator Value")
 
 def plot_macd(df):
+    MACD(df)
     plt.figure(figsize=(12,7))
 
     # plot the MACD
@@ -221,6 +229,7 @@ def plot_macd(df):
     plt.ylabel("Value")
 
 def plot_trends(df):
+    find_trends(df)
     plt.figure(figsize=(15,7))
 
     # plot the trends
@@ -236,6 +245,7 @@ def plot_trends(df):
     plt.xlabel("Date")
 
 def plot_moving_averages(df):
+    find_moving_averages(df)
     plt.figure(figsize=(12,7))
 
     # plot the closing prices
