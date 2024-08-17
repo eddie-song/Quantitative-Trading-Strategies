@@ -46,7 +46,6 @@ def calculate_rsi_bb_returns(df):
     
     total_profit_loss = profit_loss
     # print("Final price: {}".format(round(df['Close'].iloc[-1], 2)))
-    print("Final RSI and BB profit/loss: {}".format(round(total_profit_loss, 2)))
     return round(total_profit_loss, 2)
 
 # calculate P/L ratio
@@ -79,8 +78,22 @@ def rsi_bb_pl_ratio(df):
         return pl_ratio
     else:
         pl_ratio = (total_gain / nwt) / (total_loss / nlt)
-        print("Final RSI and BB P/L ratio: {}".format(round(pl_ratio, 2)))
         return round(pl_ratio, 2)
+    
+# calculate sharpe ratio
+def rsi_bb_sharpe_ratio(df):
+    total_rp = calculate_rsi_bb_returns(df)
+    rf = 0.0449
+    rp = []
+
+    df_short = df[13:]
+    for i in range(14):
+        beg = round(i * 35)
+        end = round((i + 1) * 35)
+        data = df_short[beg:end]
+        rp.append(calculate_rsi_bb_returns(data))
+    sigma_rp = np.std(rp)
+    return round((total_rp - rf) / sigma_rp, 2)
 
 # plot signals and closing price
 def plot_rsi_bb_strategy(df):
@@ -97,6 +110,7 @@ def plot_rsi_bb_strategy(df):
 stock_info = yf.Ticker('INTC')
 stock = stock_info.history(period="2y")
 rsi_and_bollinger_bands_strategy(stock)
-calculate_rsi_bb_returns(stock)
-rsi_bb_pl_ratio(stock)
+print("Final RSI and BB profit/loss: {}".format(round(calculate_rsi_bb_returns(stock), 2)))
+print("Final RSI and BB P/L ratio: {}".format(round(rsi_bb_pl_ratio(stock), 2)))
+print("Final RSI and BB Sharpe ratio: {}".format(rsi_bb_sharpe_ratio(stock)))
 plot_rsi_bb_strategy(stock)
