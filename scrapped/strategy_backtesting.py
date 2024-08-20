@@ -21,9 +21,9 @@ def rsi_and_bollinger_bands_strategy(df):
     ti.bollinger_bands(df)
     df['Signal'] = 0
     for i in range(13, len(df)):
-        if df['RSI'].iloc[i] < 30 and df['Close'].iloc[i] < df['Lower Band'].iloc[i]:
+        if df['RSI'].iloc[i] <= 30 and df['Close'].iloc[i] <= df['Lower Band'].iloc[i]:
             df['Signal'].iloc[i] = 1
-        elif df['RSI'].iloc[i] > 70 and df['Close'].iloc[i] > df['Upper Band'].iloc[i]:
+        elif df['RSI'].iloc[i] >= 70 and df['Close'].iloc[i] >= df['Upper Band'].iloc[i]:
             df['Signal'].iloc[i] = -1
 
 # calculate returns
@@ -74,7 +74,6 @@ def rsi_bb_pl_ratio(df):
     pl_ratio = 0
     if total_loss == 0 or nlt == 0:
         pl_ratio = total_gain / nwt
-        print("Final P/L ratio: {}".format(pl_ratio))
         return pl_ratio
     else:
         pl_ratio = (total_gain / nwt) / (total_loss / nlt)
@@ -82,7 +81,7 @@ def rsi_bb_pl_ratio(df):
     
 # calculate sharpe ratio
 def rsi_bb_sharpe_ratio(df):
-    total_rp = calculate_rsi_bb_returns(df)
+    total_rp = calculate_rsi_bb_returns(df) / 100
     rf = 0.0449
     rp = []
 
@@ -107,7 +106,7 @@ def plot_rsi_bb_strategy(df):
     plt.legend(loc='best')
     plt.show()
 
-stock_info = yf.Ticker('INTC')
+stock_info = yf.Ticker('AMD')
 stock = stock_info.history(period="2y")
 rsi_and_bollinger_bands_strategy(stock)
 print("Final RSI and BB profit/loss: {}".format(round(calculate_rsi_bb_returns(stock), 2)))
