@@ -1,4 +1,4 @@
-# this file is for testing indicators on specific stocks
+# trading indicators to be used in strategies
 
 import yfinance as yf
 import matplotlib.pyplot as plt
@@ -7,13 +7,13 @@ import matplotlib.pyplot as plt
 import warnings
 warnings.filterwarnings("ignore")
 
-# select stock
-ticker="DIS"
-stock = yf.Ticker(ticker)
-history = stock.history(period="2y") # historical prices of stock
+# # select stock
+ticker="BP"
+# stock = yf.Ticker(ticker)
+# history = stock.history(period="2y") # historical prices of stock
 n = 20 # number of days in smoothing period
 m = 2 # number of standard deviations
-history = history.drop(columns = ['Volume', 'Dividends', 'Stock Splits']) # drop unecessary columns
+# history = history.drop(columns = ['Volume', 'Dividends', 'Stock Splits']) # drop unecessary columns
 
 # universal methods
 # find gain/loss and average gain/loss
@@ -32,9 +32,10 @@ def find_gains_and_losses(df):
         else:
             df['Loss'].iloc[i] = abs(change)
     
-    # calculate the average gains and losses
+    # calculate the average gains and losses over the previous 14 days
     df['Avg. Gains'] = df['Gain'].rolling(window=14).mean()
     df['Avg. Loss'] = df['Loss'].rolling(window=14).mean()
+
 
 # indicators
 
@@ -50,8 +51,6 @@ def bollinger_bands(df):
     # calculate the band values
     df['Upper Band'] = df['20d Moving Average'] + (m * df['20d Moving Std Dev'])
     df['Lower Band'] = df['20d Moving Average'] - (m * df['20d Moving Std Dev'])
-
-bollinger_bands(history)
 
 # find the signals
 def calculate_bollinger_signals(df):
@@ -128,17 +127,10 @@ def find_moving_averages(df):
     # calculate the 200 day moving average
     df['200d Moving Average'] = df['Close'].rolling(window=200).mean()
 
-find_moving_averages(history)
-
-# convert to csv and markdown
-history = history.tail(50)
-history.to_csv("./CSV Files/{} CSV File".format(ticker), index=False, sep='\t')
-history.to_markdown("./Table Files/{} Table File".format(ticker), index=False)
-
-
 # plot indicators
 def plot_bands(df):
     bollinger_bands(df)
+    calculate_bollinger_signals(df)
     plt.figure(figsize=(12,7))
 
     # plot the closing prices
@@ -260,6 +252,10 @@ def plot_moving_averages(df):
     plt.xlabel("Date")
     plt.ylabel("Price")
     plt.legend(loc="best")
+
+# convert to csv and markdown
+# history.to_csv("./CSV Files/{} CSV File".format(ticker), index=False, sep='\t')
+# history.to_markdown("./Table Files/{} Table File".format(ticker), index=False)
 
 # plot_bands(history)
 # plot_stochastic_oscillator(history)
