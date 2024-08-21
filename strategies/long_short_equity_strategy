@@ -1,0 +1,127 @@
+import yfinance as yf
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import plotly.express as px
+from sklearn.preprocessing import StandardScaler
+from scipy.stats import norm
+
+# ignore warnings
+import warnings
+warnings.filterwarnings("ignore")
+
+# create portfolio
+portfolio = ['COIN', 'GRAB', 'INTC', 'MSFT', 'NVDA', 'SEAT', 'VTLE', 'GOOGL', 'IBM', 'NFLX', 'AMZN',
+           'AMD', 'QQQ', 'QQQM', 'NEE', 'V', 'C', 'SQ', 'PHYS', 'SCHD', 'VOO', 'UNH', 'ABBV', 'HCA',
+           'CI', 'LLY', 'ACIC', 'SBLK', 'SB', 'BP', 'VTLE', 'FSLR', 'CMG', 'SBUX', 'JD', 'REAL', 'BABA', 'AAP']
+data = yf.download(portfolio, start="2020-01-01", end="2023-01-01")['Adj Close']
+
+# fetch actual P/E and ROE data
+pe_ratio = np.random.uniform(10, 30, size=(len(data), len(portfolio)))  # Simulated P/E ratio
+roe = np.random.uniform(10, 20, size=(len(data), len(portfolio)))  # Simulated ROE
+
+# calculate 12-month momentum
+momentum = data.pct_change(252).iloc[-1, :]
+
+factor_data = pd.DataFrame({
+    'P/E': pe_ratio[-1, :],
+    'ROE': roe[-1, :],
+    'Momentum': momentum
+}, index=portfolio)
+
+# standardize factors
+scaler = StandardScaler()
+factor_data[['P/E', 'ROE', 'Momentum']] = scaler.fit_transform(factor_data[['P/E', 'ROE', 'Momentum']])
+
+# rank stocks
+factor_data['Value Rank'] = factor_data['P/E'].rank(ascending=True)
+factor_data['Quality Rank'] = factor_data['ROE'].rank(ascending=False)
+factor_data['Momentum Rank'] = factor_data['Momentum'].rank(ascending=False)
+
+# create a combined score
+factor_data['Combined Rank'] = factor_data[['Value Rank', 'Quality Rank', 'Momentum Rank']].mean(axis=1)
+
+# select the top 20% for long and bottom 20% for short
+n_stocks = len(portfolio)
+long_stocks = factor_data.nsmallest(int(n_stocks * 0.2), 'Combined Rank').index
+short_stocks = factor_data.nlargest(int(n_stocks * 0.2), 'Combined Rank').index
+
+# calculate returns
+long_returns = data[long_stocks].pct_change().mean(axis=1)
+short_returns = data[short_stocks].pct_change().mean(axis=1)
+
+# long/short portfolio return
+portfolio_returns = long_returns - short_returns
+
+# cumulative returns
+cumulative_returns = (1 + portfolio_returns).cumprod()
+
+# plot the data
+fig = px.line(cumulative_returns, title='Factor-Based Long/Short Equity Strategy')
+fig.update_layout(xaxis_title='Date', yaxis_title='Cumulative Returns')
+fig.show()
+
+# Sharpe ratio
+sharpe_ratio = portfolio_returns.mean() / portfolio_returns.std() * np.sqrt(252)
+print(f'Sharpe Ratio: {sharpe_ratio:.2f}')
+
+# max drawdown
+rolling_max = cumulative_returns.cummax()
+drawdown = (cumulative_returns - rolling_max) / rolling_max
+max_drawdown = drawdown.min()
+print(f'Maximum Drawdown: {max_drawdown:.2%}')
+
+# Alpha/Beta
+benchmark = yf.download('^GSPC', start="2020-01-01", end="2023-01-01")['Adj Close'].pct_change()
+excess_returns = portfolio_returns - benchmark.mean()
+alpha = excess_returns.mean() * 252
+beta = excess_returns.cov(benchmark) / benchmark.var()
+print(f'Alpha: {alpha:.2%}, Beta: {beta:.2f}')
+
+# generate recommendations
+recommendations = pd.DataFrame(index=factor_data.index)
+recommendations['Action'] = 'Hold'
+recommendations.loc[long_stocks, 'Action'] = 'Strong Buy'
+recommendations.loc[short_stocks, 'Action'] = 'Strong Sell'
+
+# display recommendations
+styled_table = recommendations.style.applymap(lambda x: 'background-color: green' if x == 'Strong Buy' else
+                                              'background-color: red' if x == 'Strong Sell' else
+                                              'background-color: yellow')
+styled_table
+
+# risk management
+# calculate daily returns
+daily_returns = portfolio_returns.dropna()
+
+# VaR
+confidence_level = 0.95
+VaR = norm.ppf(1 - confidence_level) * daily_returns.std() - daily_returns.mean()
+print(f'Value at Risk (95% confidence level): {VaR:.2%}')
+
+# CVaR
+CVaR = daily_returns[daily_returns <= VaR].mean()
+print(f'Conditional Value at Risk (95% confidence level): {CVaR:.2%}')
+
+# Monte Carlo simulation
+num_simulations = 1000
+num_days = 252  # 1 year
+
+simulation_df = pd.DataFrame()
+
+np.random.seed(42)
+for x in range(num_simulations):
+    simulated_returns = np.random.normal(daily_returns.mean(), daily_returns.std(), num_days)
+    simulated_cumulative_returns = np.cumprod(1 + simulated_returns) - 1
+    simulation_df[x] = simulated_cumulative_returns
+
+# plot the Monte Carlo simulations
+plt.figure(figsize=(12, 7))
+plt.plot(simulation_df, color='lightgray')
+plt.plot(np.mean(simulation_df, axis=1), color='red', label='Mean Simulated Return')
+plt.title('Monte Carlo Simulation of Portfolio Returns')
+plt.xlabel('Days')
+plt.ylabel('Cumulative Returns')
+plt.legend(loc='best')
+plt.show()
+
